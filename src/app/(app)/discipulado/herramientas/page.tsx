@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth-guard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/form";
@@ -8,6 +9,7 @@ import { revalidatePath } from "next/cache";
 
 async function createTool(formData: FormData) {
   "use server";
+  await requirePermission("discipleship.tools.manage");
   await prisma.discipleshipTool.create({
     data: {
       category: formData.get("category")?.toString() ?? "Discipulado",

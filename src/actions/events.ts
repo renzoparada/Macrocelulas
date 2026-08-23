@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -10,6 +11,7 @@ function str(fd: FormData, key: string): string | undefined {
 }
 
 export async function createEvent(formData: FormData) {
+  await requirePermission("events.manage");
   const event = await prisma.event.create({
     data: {
       type: str(formData, "type") ?? "Otro",
@@ -26,6 +28,7 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function addEventParticipant(eventId: string, formData: FormData) {
+  await requirePermission("events.manage");
   const personId = str(formData, "personId");
   if (!personId) return;
 
@@ -43,6 +46,7 @@ export async function addEventParticipant(eventId: string, formData: FormData) {
 }
 
 export async function updateEventResults(eventId: string, formData: FormData) {
+  await requirePermission("events.manage");
   await prisma.event.update({ where: { id: eventId }, data: { results: str(formData, "results") } });
   revalidatePath(`/eventos/${eventId}`);
 }

@@ -1,6 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { getCardexPerson } from "@/lib/cardex-query";
 import { getPersonHealth, getPillarProgress } from "@/lib/business";
+import { getScope, isCellIdInScope } from "@/lib/scope";
+import { canViewPrayerRequest } from "@/lib/prayer-access";
 import { CardexHeader } from "@/components/cardex/cardex-header";
 import { PillarsSummary } from "@/components/cardex/pillars-summary";
 import { CardexTabs } from "@/components/cardex/cardex-tabs";
@@ -19,9 +22,24 @@ import { TabTimeline } from "@/components/cardex/tab-timeline";
 import { TabSeguimiento } from "@/components/cardex/tab-seguimiento";
 
 export default async function CardexPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+
   const { id } = await params;
   const person = await getCardexPerson(id);
   if (!person) notFound();
+
+  const scope = getScope(session);
+  if (!isCellIdInScope(scope, person.currentCellId, person.currentCell?.macroCellId)) notFound();
+
+  const visiblePrayerRequests = person.prayerRequests.filter((r) =>
+    canViewPrayerRequest(session, {
+      isPrivate: r.isPrivate,
+      createdById: r.createdById,
+      person: { currentCellId: person.currentCellId, currentCell: person.currentCell ? { macroCellId: person.currentCell.macroCellId } : null },
+    })
+  );
+  const personForTabs = { ...person, prayerRequests: visiblePrayerRequests };
 
   const [health, progress] = await Promise.all([getPersonHealth(id), getPillarProgress(id)]);
 
@@ -38,7 +56,7 @@ export default async function CardexPage({ params }: { params: Promise<{ id: str
           { key: "consolidar", label: "Consolidar", content: <TabConsolidar person={person} /> },
           { key: "discipulado", label: "Discipulado", content: <TabDiscipulado person={person} /> },
           { key: "vida", label: "Vida", content: <TabVida person={person} /> },
-          { key: "oracion", label: "🙏 Oración", content: <TabOracion person={person} /> },
+          { key: "oracion", label: "🙏 Oración", content: <TabOracion person={personForTabs} /> },
           { key: "entrenar", label: "Entrenar", content: <TabEntrenar person={person} /> },
           { key: "enviar", label: "Enviar", content: <TabEnviar person={person} /> },
           { key: "eventos", label: "Eventos", content: <TabEventos person={person} /> },

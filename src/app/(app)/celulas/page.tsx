@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getScope, cellScopeWhere } from "@/lib/scope";
 import { getCellHealth, HEALTH_COLORS, HEALTH_LABELS } from "@/lib/business";
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
@@ -7,18 +10,23 @@ import { Plus, Users } from "lucide-react";
 import Link from "next/link";
 
 export default async function CelulasPage({ searchParams }: { searchParams: Promise<{ alerta?: string }> }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+  const scope = getScope(session);
   const params = await searchParams;
 
   const macroCells = await prisma.macroCell.findMany({
+    where: scope.type === "macroCell" ? { id: scope.macroCellId } : undefined,
     include: {
       leader: { select: { name: true } },
       cells: {
+        where: cellScopeWhere(scope),
         include: { leader: { select: { name: true } }, _count: { select: { memberships: { where: { isCurrent: true } } } } },
         orderBy: { number: "asc" },
       },
     },
     orderBy: { name: "asc" },
-  });
+  }).then((rows) => (scope.type === "cells" ? rows.filter((mc) => mc.cells.length > 0) : rows));
 
   const cellsWithHealth = await Promise.all(
     macroCells.map(async (mc) => ({

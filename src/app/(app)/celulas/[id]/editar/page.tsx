@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getScope, isCellIdInScope } from "@/lib/scope";
 import { updateCell } from "@/actions/cells";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +9,9 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 export default async function EditCellPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+
   const { id } = await params;
   const [cell, leaders, coLeaders] = await Promise.all([
     prisma.cell.findUnique({ where: { id } }),
@@ -14,6 +19,9 @@ export default async function EditCellPage({ params }: { params: Promise<{ id: s
     prisma.user.findMany({ where: { role: { key: "CO_LIDER" }, active: true }, select: { id: true, name: true } }),
   ]);
   if (!cell) notFound();
+
+  const scope = getScope(session);
+  if (!isCellIdInScope(scope, cell.id, cell.macroCellId)) notFound();
 
   const action = updateCell.bind(null, id);
 

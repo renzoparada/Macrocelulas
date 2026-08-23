@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { addTimelineEvent } from "@/lib/audit";
+import { requirePermission } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -18,6 +19,7 @@ const STAGE_KEY_BY_MULT_STAGE: Record<string, string> = {
 };
 
 export async function registerMultiplicationStep(formData: FormData) {
+  await requirePermission("leaders.manage");
   const leaderId = str(formData, "leaderId");
   const discipleId = str(formData, "discipleId");
   const stage = str(formData, "stage") ?? "LIDER_EN_FORMACION";
@@ -52,6 +54,7 @@ export async function registerMultiplicationStep(formData: FormData) {
 }
 
 export async function registerNewCell(formData: FormData) {
+  await requirePermission("cells.manage");
   const parentCellId = str(formData, "parentCellId");
   const newLeaderId = str(formData, "newLeaderId");
 
@@ -91,6 +94,7 @@ export async function registerNewCell(formData: FormData) {
 }
 
 export async function updateLeadershipDevelopment(personId: string, formData: FormData) {
+  await requirePermission("people.edit");
   await prisma.leadershipDevelopment.upsert({
     where: { personId },
     create: {

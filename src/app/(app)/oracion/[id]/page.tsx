@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { canViewPrayerRequest } from "@/lib/prayer-access";
 import { addPrayerUpdate, resolvePrayerRequest, deactivatePrayerRequest } from "@/actions/prayer";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,12 +12,20 @@ import { fullName, formatDate, formatDateTime, daysBetween } from "@/lib/utils";
 import Link from "next/link";
 
 export default async function PrayerRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+
   const { id } = await params;
   const request = await prisma.prayerRequest.findUnique({
     where: { id },
-    include: { person: true, updates: { orderBy: { date: "desc" } }, resolution: true },
+    include: {
+      person: { include: { currentCell: { select: { macroCellId: true } } } },
+      updates: { orderBy: { date: "desc" } },
+      resolution: true,
+    },
   });
   if (!request) notFound();
+  if (!canViewPrayerRequest(session, request)) notFound();
 
   const addUpdate = addPrayerUpdate.bind(null, id);
   const resolve = resolvePrayerRequest.bind(null, id);

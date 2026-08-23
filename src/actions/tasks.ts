@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 
 function str(fd: FormData, key: string): string | undefined {
@@ -10,7 +10,7 @@ function str(fd: FormData, key: string): string | undefined {
 }
 
 export async function createTask(personId: string, formData: FormData) {
-  const session = await auth();
+  const session = await requireSession();
 
   await prisma.task.create({
     data: {
@@ -18,8 +18,8 @@ export async function createTask(personId: string, formData: FormData) {
       type: (str(formData, "type") as never) ?? "SEGUIMIENTO",
       dueDate: str(formData, "dueDate") ? new Date(str(formData, "dueDate")!) : undefined,
       notes: str(formData, "notes"),
-      createdById: session?.user.id,
-      assignedToId: session?.user.id,
+      createdById: session.user.id,
+      assignedToId: session.user.id,
     },
   });
 
@@ -27,6 +27,7 @@ export async function createTask(personId: string, formData: FormData) {
 }
 
 export async function updateTaskStatus(taskId: string, personId: string, status: string) {
+  await requireSession();
   await prisma.task.update({
     where: { id: taskId },
     data: { status: status as never, completedAt: status === "COMPLETADA" ? new Date() : null },
@@ -35,11 +36,13 @@ export async function updateTaskStatus(taskId: string, personId: string, status:
 }
 
 export async function markNotificationRead(notificationId: string) {
-  await prisma.notification.update({ where: { id: notificationId }, data: { read: true } });
+  const session = await requireSession();
+  await prisma.notification.updateMany({ where: { id: notificationId, userId: session.user.id }, data: { read: true } });
   revalidatePath("/notificaciones");
 }
 
-export async function markAllNotificationsRead(userId: string) {
-  await prisma.notification.updateMany({ where: { userId, read: false }, data: { read: true } });
+export async function markAllNotificationsRead() {
+  const session = await requireSession();
+  await prisma.notification.updateMany({ where: { userId: session.user.id, read: false }, data: { read: true } });
   revalidatePath("/notificaciones");
 }

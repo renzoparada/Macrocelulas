@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getScope, personScopeWhere, cellScopeWhere } from "@/lib/scope";
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
 import { PersonRow } from "@/components/person-row";
@@ -11,9 +14,12 @@ export default async function PersonasPage({
 }: {
   searchParams: Promise<{ q?: string; celula?: string; etapa?: string; estado?: string; nuevos?: string }>;
 }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+  const scope = getScope(session);
   const params = await searchParams;
 
-  const where: Prisma.PersonWhereInput = {};
+  const where: Prisma.PersonWhereInput = { AND: [personScopeWhere(scope)] };
   if (params.q) {
     where.OR = [
       { firstName: { contains: params.q, mode: "insensitive" } },
@@ -38,7 +44,7 @@ export default async function PersonasPage({
       orderBy: { registeredAt: "desc" },
       take: 100,
     }),
-    prisma.cell.findMany({ orderBy: { number: "asc" }, select: { id: true, number: true, name: true } }),
+    prisma.cell.findMany({ where: cellScopeWhere(scope), orderBy: { number: "asc" }, select: { id: true, number: true, name: true } }),
     prisma.processStage.findMany({ orderBy: { order: "asc" } }),
   ]);
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -10,6 +11,8 @@ function str(fd: FormData, key: string): string | undefined {
 }
 
 export async function createRetreat(formData: FormData) {
+  await requirePermission("retreats.manage");
+
   let retreatType = await prisma.retreatType.findUnique({ where: { name: str(formData, "retreatTypeName") ?? "Otro" } });
   if (!retreatType) {
     retreatType = await prisma.retreatType.create({ data: { name: str(formData, "retreatTypeName") ?? "Otro" } });
@@ -29,6 +32,7 @@ export async function createRetreat(formData: FormData) {
 }
 
 export async function addRetreatParticipant(retreatId: string, formData: FormData) {
+  await requirePermission("people.edit");
   const personId = str(formData, "personId");
   if (!personId) return;
   await prisma.retreatParticipant.upsert({
@@ -40,6 +44,8 @@ export async function addRetreatParticipant(retreatId: string, formData: FormDat
 }
 
 export async function createCongress(formData: FormData) {
+  await requirePermission("congresses.manage");
+
   const congress = await prisma.congress.create({
     data: {
       name: str(formData, "name") ?? "",
@@ -53,6 +59,7 @@ export async function createCongress(formData: FormData) {
 }
 
 export async function addCongressParticipant(congressId: string, formData: FormData) {
+  await requirePermission("people.edit");
   const personId = str(formData, "personId");
   if (!personId) return;
   await prisma.congressParticipant.upsert({

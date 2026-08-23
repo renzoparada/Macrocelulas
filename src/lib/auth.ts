@@ -15,6 +15,7 @@ declare module "next-auth" {
       macroCellId: string | null;
       personId: string | null;
       ledCellIds: string[];
+      scopedCellIds: string[];
     };
   }
   interface User {
@@ -23,6 +24,7 @@ declare module "next-auth" {
     macroCellId?: string | null;
     personId?: string | null;
     ledCellIds?: string[];
+    scopedCellIds?: string[];
   }
 }
 
@@ -44,7 +46,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email: email.toLowerCase().trim() },
-          include: { role: true, ledCells: { select: { id: true } } },
+          include: {
+            role: true,
+            ledCells: { select: { id: true } },
+            coLedCells: { select: { id: true } },
+          },
         });
         if (!user || !user.active) return null;
 
@@ -56,6 +62,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { lastLoginAt: new Date() },
         });
 
+        const ledCellIds = user.ledCells.map((c) => c.id);
+        const coLedCellIds = user.coLedCells.map((c) => c.id);
+
         return {
           id: user.id,
           name: user.name,
@@ -64,7 +73,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           roleLabel: user.role.name,
           macroCellId: user.macroCellId,
           personId: user.personId,
-          ledCellIds: user.ledCells.map((c) => c.id),
+          ledCellIds,
+          scopedCellIds: Array.from(new Set([...ledCellIds, ...coLedCellIds])),
         };
       },
     }),
@@ -77,6 +87,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         macroCellId?: string | null;
         personId?: string | null;
         ledCellIds?: string[];
+        scopedCellIds?: string[];
       };
       if (user) {
         t.role = user.role;
@@ -84,6 +95,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         t.macroCellId = user.macroCellId ?? null;
         t.personId = user.personId ?? null;
         t.ledCellIds = user.ledCellIds ?? [];
+        t.scopedCellIds = user.scopedCellIds ?? [];
       }
       return t;
     },
@@ -95,6 +107,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.macroCellId = (token.macroCellId as string | null) ?? null;
         session.user.personId = (token.personId as string | null) ?? null;
         session.user.ledCellIds = (token.ledCellIds as string[]) ?? [];
+        session.user.scopedCellIds = (token.scopedCellIds as string[]) ?? [];
       }
       return session;
     },

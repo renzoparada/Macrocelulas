@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getScope, isCellIdInScope } from "@/lib/scope";
 import { getCellHealth, HEALTH_COLORS, HEALTH_LABELS } from "@/lib/business";
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
@@ -9,6 +11,9 @@ import { formatDate } from "@/lib/utils";
 import { CalendarCheck, Pencil } from "lucide-react";
 
 export default async function CellDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+
   const { id } = await params;
 
   const cell = await prisma.cell.findUnique({
@@ -24,6 +29,9 @@ export default async function CellDetailPage({ params }: { params: Promise<{ id:
     },
   });
   if (!cell) notFound();
+
+  const scope = getScope(session);
+  if (!isCellIdInScope(scope, cell.id, cell.macroCellId)) notFound();
 
   const health = await getCellHealth(id);
 

@@ -1,11 +1,18 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getScope, cellScopeWhere } from "@/lib/scope";
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import Link from "next/link";
 import { CalendarCheck } from "lucide-react";
 
 export default async function AsistenciaPage() {
+  const session = await auth();
+  if (!session) redirect("/login");
+  const scope = getScope(session);
+
   const cells = await prisma.cell.findMany({
-    where: { status: { not: "INACTIVA" } },
+    where: { status: { not: "INACTIVA" }, ...cellScopeWhere(scope) },
     include: { macroCell: { select: { name: true } }, leader: { select: { name: true } }, _count: { select: { memberships: { where: { isCurrent: true } } } } },
     orderBy: { number: "asc" },
   });

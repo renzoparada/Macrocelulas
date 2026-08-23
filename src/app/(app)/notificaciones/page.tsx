@@ -14,7 +14,7 @@ export default async function NotificationsPage() {
     take: 100,
   });
 
-  const markAll = markAllNotificationsRead.bind(null, session!.user.id);
+  const markAll = markAllNotificationsRead;
 
   return (
     <div>

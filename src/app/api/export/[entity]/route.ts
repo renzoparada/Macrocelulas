@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fullName, formatDate } from "@/lib/utils";
+import { getScope, personScopeWhere, cellScopeWhere } from "@/lib/scope";
+import { prayerVisibilityWhere } from "@/lib/prayer-access";
 
 function toCsv(rows: Record<string, unknown>[]): string {
   if (rows.length === 0) return "";
@@ -16,11 +18,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ enti
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const { entity } = await params;
+  const scope = getScope(session);
   let rows: Record<string, unknown>[] = [];
 
   switch (entity) {
     case "personas": {
       const people = await prisma.person.findMany({
+        where: personScopeWhere(scope),
         include: { currentCell: true, currentStage: true },
         orderBy: { registeredAt: "desc" },
       });
@@ -36,7 +40,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ enti
       break;
     }
     case "asistencia": {
-      const reports = await prisma.attendanceReport.findMany({ include: { cell: true }, orderBy: { date: "desc" } });
+      const reports = await prisma.attendanceReport.findMany({
+        where: { cell: cellScopeWhere(scope) },
+        include: { cell: true },
+        orderBy: { date: "desc" },
+      });
       rows = reports.map((r) => ({
         Fecha: formatDate(r.date),
         Celula: `C${r.cell.number} - ${r.cell.name}`,
@@ -49,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ enti
       break;
     }
     case "celulas": {
-      const cells = await prisma.cell.findMany({ include: { macroCell: true, leader: true } });
+      const cells = await prisma.cell.findMany({ where: cellScopeWhere(scope), include: { macroCell: true, leader: true } });
       rows = cells.map((c) => ({
         Numero: c.number,
         Nombre: c.name,
@@ -60,12 +68,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ enti
       break;
     }
     case "bautismos": {
-      const baptisms = await prisma.baptism.findMany({ include: { person: true } });
+      const baptisms = await prisma.baptism.findMany({ where: { person: personScopeWhere(scope) }, include: { person: true } });
       rows = baptisms.map((b) => ({ Nombre: fullName(b.person), Fecha: formatDate(b.date), Lugar: b.place ?? "" }));
       break;
     }
     case "encuentros": {
-      const regs = await prisma.encounterRegistration.findMany({ include: { person: true, encounter: true } });
+      const regs = await prisma.encounterRegistration.findMany({
+        where: { person: personScopeWhere(scope) },
+        include: { person: true, encounter: true },
+      });
       rows = regs.map((r) => ({
         Nombre: fullName(r.person),
         Encuentro: r.encounter.name,
@@ -75,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ enti
       break;
     }
     case "oracion": {
-      const requests = await prisma.prayerRequest.findMany({ include: { person: true } });
+      const requests = await prisma.prayerRequest.findMany({ where: prayerVisibilityWhere(session), include: { person: true } });
       rows = requests.map((r) => ({
         Nombre: fullName(r.person),
         Motivo: r.motivo,

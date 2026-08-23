@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/form";
 import { PRAYER_CATEGORIES } from "@/lib/constants";
 import { fullName, formatDate, daysBetween } from "@/lib/utils";
+import { prayerVisibilityWhere } from "@/lib/prayer-access";
 import Link from "next/link";
 import { Plus, ListChecks, GitBranch } from "lucide-react";
 import type { Prisma } from "@/generated/prisma/client";
@@ -16,19 +19,23 @@ export default async function OracionPage({
 }: {
   searchParams: Promise<{ celula?: string; categoria?: string; prioridad?: string; estado?: string; antiguedad?: string }>;
 }) {
+  const session = await auth();
+  if (!session) redirect("/login");
   const sp = await searchParams;
 
-  const where: Prisma.PrayerRequestWhereInput = {};
-  if (sp.categoria) where.category = sp.categoria;
-  if (sp.prioridad) where.priority = sp.prioridad as never;
-  where.status = (sp.estado as never) ?? "ACTIVO";
-  if (sp.celula) where.person = { currentCellId: sp.celula };
+  const filters: Prisma.PrayerRequestWhereInput = {};
+  if (sp.categoria) filters.category = sp.categoria;
+  if (sp.prioridad) filters.priority = sp.prioridad as never;
+  filters.status = (sp.estado as never) ?? "ACTIVO";
+  if (sp.celula) filters.person = { currentCellId: sp.celula };
 
   if (sp.antiguedad === "90") {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    where.startDate = { lte: cutoff };
+    filters.startDate = { lte: cutoff };
   }
+
+  const where: Prisma.PrayerRequestWhereInput = { AND: [filters, prayerVisibilityWhere(session)] };
 
   const [requests, cells] = await Promise.all([
     prisma.prayerRequest.findMany({

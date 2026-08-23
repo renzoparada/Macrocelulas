@@ -2,10 +2,19 @@
 
 import { prisma } from "@/lib/prisma";
 import { addTimelineEvent } from "@/lib/audit";
+import { requirePermission } from "@/lib/auth-guard";
+import { getScope, isCellIdInScope } from "@/lib/scope";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function saveAttendance(cellId: string, dateStr: string, formData: FormData) {
+  const session = await requirePermission("attendance.register");
+  const cell = await prisma.cell.findUniqueOrThrow({ where: { id: cellId } });
+  const scope = getScope(session);
+  if (!isCellIdInScope(scope, cell.id, cell.macroCellId)) {
+    throw new Error("No tienes permiso para registrar asistencia en esta célula.");
+  }
+
   const date = new Date(dateStr);
   const personIds = formData.getAll("personId").map((v) => v.toString());
 

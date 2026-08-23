@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth-guard";
 import { logAudit, addTimelineEvent } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -21,6 +21,7 @@ function backTo(personId: string) {
 // ---------------------------------------------------------------------------
 
 export async function registerAcceptedJesus(personId: string, formData: FormData) {
+  const session = await requirePermission("people.edit");
   const date = str(formData, "date") ?? new Date().toISOString();
   const place = str(formData, "place");
   const accompaniedBy = str(formData, "accompaniedBy");
@@ -51,13 +52,13 @@ export async function registerAcceptedJesus(personId: string, formData: FormData
     date: new Date(date),
   });
 
-  const session = await auth();
-  await logAudit({ userId: session?.user.id, action: "CREATE", entity: "AcceptedJesus", recordId: personId });
+  await logAudit({ userId: session.user.id, action: "CREATE", entity: "AcceptedJesus", recordId: personId });
 
   backTo(personId);
 }
 
 export async function registerFirstCellVisit(personId: string, formData: FormData) {
+  await requirePermission("people.edit");
   const date = str(formData, "date") ?? new Date().toISOString();
   const cellName = str(formData, "cellName");
   const leaderName = str(formData, "leaderName");
@@ -87,6 +88,7 @@ export async function registerFirstCellVisit(personId: string, formData: FormDat
 // ---------------------------------------------------------------------------
 
 export async function togglePreEncounterClass(personId: string, classNumber: number, completed: boolean) {
+  await requirePermission("people.edit");
   await prisma.preEncounterClass.upsert({
     where: { personId_classNumber: { personId, classNumber } },
     create: { personId, classNumber, completed, date: completed ? new Date() : undefined },
@@ -109,6 +111,7 @@ export async function togglePreEncounterClass(personId: string, classNumber: num
 }
 
 export async function togglePostEncounterClass(personId: string, classNumber: number, completed: boolean) {
+  await requirePermission("people.edit");
   await prisma.postEncounterClass.upsert({
     where: { personId_classNumber: { personId, classNumber } },
     create: { personId, classNumber, completed, date: completed ? new Date() : undefined },
@@ -129,6 +132,7 @@ export async function togglePostEncounterClass(personId: string, classNumber: nu
 }
 
 export async function registerBaptism(personId: string, formData: FormData) {
+  await requirePermission("people.edit");
   const date = str(formData, "date") ?? new Date().toISOString();
   const place = str(formData, "place");
   const responsibleName = str(formData, "responsibleName");
@@ -155,6 +159,7 @@ export async function createBaptismStandalone(formData: FormData) {
 }
 
 export async function updateChurchAttendance(personId: string, formData: FormData) {
+  await requirePermission("people.edit");
   const attends = formData.get("attends") === "on";
   const churchName = str(formData, "churchName");
   const congregation = str(formData, "congregation");
@@ -175,6 +180,7 @@ export async function updateChurchAttendance(personId: string, formData: FormDat
 // ---------------------------------------------------------------------------
 
 export async function updateLifeHistory(personId: string, formData: FormData) {
+  await requirePermission("people.edit");
   const data = {
     history: str(formData, "history"),
     background: str(formData, "background"),
@@ -197,6 +203,7 @@ export async function updateLifeHistory(personId: string, formData: FormData) {
 }
 
 export async function addChallenge(personId: string, formData: FormData) {
+  await requirePermission("goals.register");
   await prisma.personalChallenge.create({
     data: {
       personId,
@@ -214,6 +221,7 @@ export async function addChallenge(personId: string, formData: FormData) {
 }
 
 export async function addGoal(personId: string, formData: FormData) {
+  await requirePermission("goals.register");
   await prisma.personalGoal.create({
     data: {
       personId,
@@ -231,6 +239,7 @@ export async function addGoal(personId: string, formData: FormData) {
 }
 
 export async function addDream(personId: string, formData: FormData) {
+  await requirePermission("goals.register");
   await prisma.dream.create({
     data: {
       personId,
@@ -246,6 +255,7 @@ export async function addDream(personId: string, formData: FormData) {
 }
 
 export async function addAchievement(personId: string, formData: FormData) {
+  await requirePermission("goals.register");
   await prisma.achievement.create({
     data: {
       personId,
@@ -262,6 +272,7 @@ export async function addAchievement(personId: string, formData: FormData) {
 }
 
 export async function addTestimonial(personId: string, formData: FormData) {
+  await requirePermission("goals.register");
   await prisma.testimonial.create({
     data: {
       personId,
@@ -283,6 +294,7 @@ export async function addTestimonial(personId: string, formData: FormData) {
 // ---------------------------------------------------------------------------
 
 export async function addFamilyRelationship(personId: string, formData: FormData) {
+  await requirePermission("families.manage");
   const relatedPersonId = str(formData, "relatedPersonId");
   const relationType = str(formData, "relationType") ?? "OTRO";
   if (!relatedPersonId) return;
@@ -317,6 +329,7 @@ export async function addFamilyRelationship(personId: string, formData: FormData
 // ---------------------------------------------------------------------------
 
 export async function setPersonStatus(personId: string, status: string) {
+  await requirePermission("people.edit");
   await prisma.person.update({ where: { id: personId }, data: { status: status as never } });
   revalidatePath(`/personas/${personId}`);
 }

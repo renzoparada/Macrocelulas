@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getScope, isCellIdInScope } from "@/lib/scope";
 import { saveAttendance } from "@/actions/attendance";
 import { PageHeader } from "@/components/ui/page-header";
 import { AttendanceForm } from "@/components/attendance/attendance-form";
@@ -17,12 +19,18 @@ export default async function AttendancePage({
   params: Promise<{ cellId: string }>;
   searchParams: Promise<{ date?: string; saved?: string }>;
 }) {
+  const session = await auth();
+  if (!session) redirect("/login");
+
   const { cellId } = await params;
   const sp = await searchParams;
   const date = sp.date ?? todayISO();
 
   const cell = await prisma.cell.findUnique({ where: { id: cellId } });
   if (!cell) notFound();
+
+  const scope = getScope(session);
+  if (!isCellIdInScope(scope, cell.id, cell.macroCellId)) notFound();
 
   const [memberships, existing, report] = await Promise.all([
     prisma.cellMembership.findMany({

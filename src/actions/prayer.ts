@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth-guard";
 import { addTimelineEvent, logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -12,7 +12,7 @@ function str(fd: FormData, key: string): string | undefined {
 }
 
 export async function createPrayerRequest(formData: FormData) {
-  const session = await auth();
+  const session = await requirePermission("prayer.register");
   const personId = str(formData, "personId");
   if (!personId) throw new Error("Selecciona una persona");
 
@@ -47,6 +47,7 @@ export async function createPrayerRequest(formData: FormData) {
 }
 
 export async function addPrayerUpdate(prayerRequestId: string, formData: FormData) {
+  await requirePermission("prayer.register");
   const note = str(formData, "note");
   if (!note) return;
 
@@ -70,6 +71,7 @@ export async function addPrayerUpdate(prayerRequestId: string, formData: FormDat
 }
 
 export async function resolvePrayerRequest(prayerRequestId: string, formData: FormData) {
+  await requirePermission("prayer.register");
   const response = str(formData, "response") ?? "";
   const testimony = str(formData, "testimony");
   const becameTestimonial = formData.get("becameTestimonial") === "on";
@@ -110,6 +112,7 @@ export async function resolvePrayerRequest(prayerRequestId: string, formData: Fo
 }
 
 export async function deactivatePrayerRequest(prayerRequestId: string) {
+  await requirePermission("prayer.register");
   await prisma.prayerRequest.update({
     where: { id: prayerRequestId },
     data: { status: "DESACTIVADO", deactivatedDate: new Date() },

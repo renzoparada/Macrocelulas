@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { addTimelineEvent } from "@/lib/audit";
+import { requirePermission } from "@/lib/auth-guard";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -11,6 +12,7 @@ function str(fd: FormData, key: string): string | undefined {
 }
 
 export async function createEncounter(formData: FormData) {
+  await requirePermission("encounters.manage");
   const encounter = await prisma.encounter.create({
     data: {
       type: (str(formData, "type") as never) ?? "ENCUENTRO",
@@ -28,6 +30,7 @@ export async function createEncounter(formData: FormData) {
 }
 
 export async function registerForEncounter(encounterId: string, formData: FormData) {
+  await requirePermission("encounters.register");
   const personId = str(formData, "personId");
   if (!personId) return;
 
@@ -41,6 +44,7 @@ export async function registerForEncounter(encounterId: string, formData: FormDa
 }
 
 export async function markEncounterAttendance(encounterId: string, personId: string, attended: boolean) {
+  await requirePermission("encounters.register");
   await prisma.encounterRegistration.update({
     where: { encounterId_personId: { encounterId, personId } },
     data: { attended, confirmed: attended ? true : undefined },
@@ -63,6 +67,7 @@ export async function markEncounterAttendance(encounterId: string, personId: str
 }
 
 export async function toggleEncounterConfirmation(encounterId: string, personId: string, confirmed: boolean) {
+  await requirePermission("encounters.register");
   await prisma.encounterRegistration.update({ where: { encounterId_personId: { encounterId, personId } }, data: { confirmed } });
   revalidatePath(`/encuentros/${encounterId}`);
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth-guard";
 import { addTimelineEvent, logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -12,7 +12,7 @@ function str(fd: FormData, key: string): string | undefined {
 }
 
 export async function createDiscipleshipSession(formData: FormData) {
-  const session = await auth();
+  const session = await requirePermission("discipleship.register");
   const discipleId = str(formData, "discipleId");
   const mentorId = str(formData, "mentorId") ?? session?.user.personId;
   if (!discipleId || !mentorId) throw new Error("Selecciona discípulo y mentor");
@@ -59,6 +59,7 @@ export async function createDiscipleshipSession(formData: FormData) {
 }
 
 export async function addDevelopmentPlan(personId: string, formData: FormData) {
+  await requirePermission("discipleship.register");
   await prisma.developmentPlan.create({
     data: {
       personId,
@@ -75,6 +76,7 @@ export async function addDevelopmentPlan(personId: string, formData: FormData) {
 }
 
 export async function toggleDevelopmentPlanStatus(planId: string, personId: string, completed: boolean) {
+  await requirePermission("discipleship.register");
   await prisma.developmentPlan.update({
     where: { id: planId },
     data: { status: completed ? "COMPLETADO" : "EN_PROCESO", completedAt: completed ? new Date() : null },

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requirePermission, requireSession } from "@/lib/auth-guard";
 import { logAudit, addTimelineEvent } from "@/lib/audit";
 
 const personSchema = z.object({
@@ -36,7 +36,7 @@ function emptyToUndefined(v: FormDataEntryValue | null): string | undefined {
 }
 
 export async function createPerson(formData: FormData) {
-  const session = await auth();
+  const session = await requirePermission("people.create");
 
   const raw = {
     firstName: formData.get("firstName")?.toString() ?? "",
@@ -130,7 +130,7 @@ export async function createPerson(formData: FormData) {
 }
 
 export async function updatePerson(personId: string, formData: FormData) {
-  const session = await auth();
+  const session = await requirePermission("people.edit");
   const before = await prisma.person.findUnique({ where: { id: personId } });
 
   const raw = {
@@ -190,6 +190,8 @@ export async function updatePerson(personId: string, formData: FormData) {
 }
 
 export async function changePersonCell(personId: string, formData: FormData) {
+  await requirePermission("people.edit");
+
   const newCellId = formData.get("cellId")?.toString();
   if (!newCellId) return;
 
@@ -235,6 +237,8 @@ export async function changePersonCell(personId: string, formData: FormData) {
 }
 
 export async function findDuplicates(params: { documentId?: string; phone?: string; firstName?: string; lastNamePaternal?: string }) {
+  await requireSession();
+
   const orConditions = [];
   if (params.documentId) orConditions.push({ documentId: params.documentId });
   if (params.phone) orConditions.push({ phone: params.phone });
