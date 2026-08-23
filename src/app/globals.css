@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f5f2;
+  --foreground: #1a1414;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+
+  /* Rojo institucional — pasión, acción, liderazgo */
+  --color-brand-50: #fef2f2;
+  --color-brand-100: #fde3e3;
+  --color-brand-200: #fbc9c9;
+  --color-brand-300: #f7a3a3;
+  --color-brand-400: #f06d6d;
+  --color-brand-500: #e53939;
+  --color-brand-600: #cf1f1f;
+  --color-brand-700: #a8140f;
+  --color-brand-800: #8c1512;
+  --color-brand-900: #751815;
+  --color-brand-950: #400807;
+
+  /* Amarillo / dorado — destacados, logros, acentos */
+  --color-gold-50: #fffceb;
+  --color-gold-100: #fff6c6;
+  --color-gold-200: #ffea88;
+  --color-gold-300: #ffd84a;
+  --color-gold-400: #fdc521;
+  --color-gold-500: #f0a80b;
+  --color-gold-600: #d18306;
+  --color-gold-700: #a85e09;
+  --color-gold-800: #8a4a0e;
+  --color-gold-900: #743d0f;
+
+  /* Grises institucionales */
+  --color-ink-50: #f6f5f4;
+  --color-ink-100: #e8e5e3;
+  --color-ink-200: #d3cdc9;
+  --color-ink-300: #b3a9a3;
+  --color-ink-400: #8d7f78;
+  --color-ink-500: #71635d;
+  --color-ink-600: #5b4f4a;
+  --color-ink-700: #4a413d;
+  --color-ink-800: #2e2724;
+  --color-ink-900: #1a1414;
+  --color-ink-950: #100c0b;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-ink-300);
+    border-radius: 999px;
+  }
+}
