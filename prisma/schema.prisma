@@ -85,6 +85,34 @@ model User {
   @@map("users")
 }
 
+enum InviteStatus {
+  PENDIENTE
+  USADA
+  EXPIRADA
+  REVOCADA
+}
+
+// Invitación de registro: el Admin genera un link (token) preasignado a un rol
+// y, si aplica, a una célula o macro célula. Quien recibe el link crea su
+// propia cuenta (correo + contraseña) sin que el Admin tenga que escribirle
+// las credenciales. Sin relaciones formales a propósito — solo referencias
+// sueltas — para no acoplar el resto del modelo a este flujo administrativo.
+model AccountInvite {
+  id           String       @id @default(cuid())
+  token        String       @unique
+  roleKey      RoleKey
+  cellId       String?
+  macroCellId  String?
+  status       InviteStatus @default(PENDIENTE)
+  createdById  String
+  usedByUserId String?
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@map("account_invites")
+}
+
 // ============================================================================
 // 2. ESTRUCTURA ORGANIZACIONAL
 // ============================================================================

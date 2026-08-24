@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getScope, cellScopeWhere } from "@/lib/scope";
+import { roleHasPermission } from "@/lib/permissions";
 import { getCellHealth, HEALTH_COLORS, HEALTH_LABELS } from "@/lib/business";
 import { PageHeader, EmptyState } from "@/components/ui/page-header";
 import { LinkButton } from "@/components/ui/button";
@@ -44,12 +45,16 @@ export default async function CelulasPage({ searchParams }: { searchParams: Prom
         subtitle="Estructura organizacional: Macro Célula → Célula → Líder → Discípulos"
         actions={
           <>
-            <LinkButton href="/celulas/macro-nueva" variant="outline">
-              <Plus className="h-4 w-4" /> Macro Célula
-            </LinkButton>
-            <LinkButton href="/celulas/nueva">
-              <Plus className="h-4 w-4" /> Nueva Célula
-            </LinkButton>
+            {roleHasPermission(session.user.role, "macrocells.manage") && (
+              <LinkButton href="/celulas/macro-nueva" variant="outline">
+                <Plus className="h-4 w-4" /> Macro Célula
+              </LinkButton>
+            )}
+            {roleHasPermission(session.user.role, "cells.manage") && (
+              <LinkButton href="/celulas/nueva">
+                <Plus className="h-4 w-4" /> Nueva Célula
+              </LinkButton>
+            )}
           </>
         }
       />

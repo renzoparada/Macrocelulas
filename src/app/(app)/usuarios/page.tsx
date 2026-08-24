@@ -7,7 +7,7 @@ import { LinkButton, Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Plus, Link2 } from "lucide-react";
 
 export default async function UsersPage() {
   const session = await auth();
@@ -21,9 +21,17 @@ export default async function UsersPage() {
         title="Usuarios y permisos"
         subtitle={`${users.length} usuario(s)`}
         actions={
-          <LinkButton href="/usuarios/nuevo">
-            <Plus className="h-4 w-4" /> Nuevo usuario
-          </LinkButton>
+          <div className="flex gap-2">
+            <LinkButton href="/usuarios/invitaciones" variant="outline">
+              <Link2 className="h-4 w-4" /> Invitaciones
+            </LinkButton>
+            <LinkButton href="/usuarios/invitar">
+              <Link2 className="h-4 w-4" /> Invitar por link
+            </LinkButton>
+            <LinkButton href="/usuarios/nuevo" variant="outline">
+              <Plus className="h-4 w-4" /> Nuevo usuario
+            </LinkButton>
+          </div>
         }
       />
 
