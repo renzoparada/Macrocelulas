@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/auth-guard";
+import { requirePermission, requireSession } from "@/lib/auth-guard";
+import { roleHasPermission } from "@/lib/permissions";
 import { getScope, isCellIdInScope } from "@/lib/scope";
 import { logAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -51,11 +52,21 @@ export async function createCell(formData: FormData) {
 }
 
 export async function updateCell(cellId: string, formData: FormData) {
-  const session = await requirePermission("cells.manage");
+  // Editar los datos de una célula no exige el permiso global "cells.manage"
+  // (eso queda para crear/borrar células) — alcanza con que la célula esté
+  // dentro del alcance del líder: la suya (o co-liderada), o cualquiera de
+  // su macro célula si es Líder de Macro Célula. El Admin, con scope "all",
+  // siempre pasa este chequeo.
+  const session = await requireSession();
 
   const existing = await prisma.cell.findUniqueOrThrow({ where: { id: cellId } });
   const scope = getScope(session);
-  if (!isCellIdInScope(scope, existing.id, existing.macroCellId)) {
+  const isLeaderRole =
+    session.user.role === "LIDER_MACRO" || session.user.role === "LIDER_CELULA" || session.user.role === "CO_LIDER";
+  const authorized =
+    roleHasPermission(session.user.role, "cells.manage") ||
+    (isLeaderRole && isCellIdInScope(scope, existing.id, existing.macroCellId));
+  if (!authorized) {
     throw new Error("No tienes permiso para editar esta célula.");
   }
 
