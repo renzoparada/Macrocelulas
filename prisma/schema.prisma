@@ -1,0 +1,1051 @@
+// ============================================================================
+// MACRO SANTIDAD CRM — Prisma Schema
+// GANAR · CONSOLIDAR · ENTRENAR · ENVIAR
+// ============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// 1. USUARIOS, ROLES Y PERMISOS
+// ============================================================================
+
+enum RoleKey {
+  ADMIN
+  LIDER_MACRO
+  LIDER_CELULA
+  CO_LIDER
+  LIDER_FORMACION
+  SUPERVISOR
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  key         RoleKey          @unique
+  name        String
+  description String?
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+
+  @@map("roles")
+}
+
+model Permission {
+  id     String           @id @default(cuid())
+  key    String           @unique
+  label  String
+  module String
+  roles  RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String
+  name          String
+  active        Boolean     @default(true)
+  roleId        String
+  role          Role        @relation(fields: [roleId], references: [id])
+  personId      String?     @unique
+  person        Person?     @relation(fields: [personId], references: [id])
+  macroCellId   String?
+  macroCell     MacroCell?  @relation("MacroCellUsers", fields: [macroCellId], references: [id])
+  ledMacroCells MacroCell[] @relation("MacroCellLeaderUser")
+  ledCells      Cell[]      @relation("CellLeaderUser")
+  coLedCells    Cell[]      @relation("CellCoLeaderUser")
+  lastLoginAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  tasksAssigned Task[]         @relation("TaskAssignedTo")
+  tasksCreated  Task[]         @relation("TaskCreatedBy")
+
+  @@map("users")
+}
+
+// ============================================================================
+// 2. ESTRUCTURA ORGANIZACIONAL
+// ============================================================================
+
+model MacroCell {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  leaderId    String?
+  leader      User?    @relation("MacroCellLeaderUser", fields: [leaderId], references: [id])
+  users       User[]   @relation("MacroCellUsers")
+  cells       Cell[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("macro_cells")
+}
+
+enum CellStatus {
+  ACTIVA
+  EN_FORMACION
+  EN_ALERTA
+  INACTIVA
+  MULTIPLICADA
+}
+
+model Cell {
+  id           String     @id @default(cuid())
+  number       String     @unique
+  name         String
+  macroCellId  String
+  macroCell    MacroCell  @relation(fields: [macroCellId], references: [id])
+  leaderId     String?
+  leader       User?      @relation("CellLeaderUser", fields: [leaderId], references: [id])
+  coLeaderId   String?
+  coLeader     User?      @relation("CellCoLeaderUser", fields: [coLeaderId], references: [id])
+  foundedAt    DateTime?
+  meetingDay   String?
+  meetingTime  String?
+  address      String?
+  location     String?
+  status       CellStatus @default(ACTIVA)
+  parentCellId String?
+  parentCell   Cell?      @relation("CellMultiplication", fields: [parentCellId], references: [id])
+  childCells   Cell[]     @relation("CellMultiplication")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships       CellMembership[]
+  attendances       Attendance[]
+  attendanceReports AttendanceReport[]
+  people            Person[]                @relation("PersonCurrentCell")
+  encounterRegs     EncounterRegistration[]
+  events            Event[]
+  invitations       Invitation[]
+
+  @@map("cells")
+}
+
+// ============================================================================
+// 3. PERSONAS Y FAMILIAS
+// ============================================================================
+
+enum Sex {
+  MASCULINO
+  FEMENINO
+}
+
+enum PersonStatus {
+  ACTIVO
+  INACTIVO
+  EN_RIESGO
+  RETIRADO
+}
+
+enum HowArrived {
+  INVITACION_PERSONAL
+  INVITACION_MIEMBRO
+  INVITACION_LIDER
+  IGLESIA
+  EVENTO
+  CONGRESO
+  ENCUENTRO
+  REDES_SOCIALES
+  CAMPANA
+  OTRO
+}
+
+model Person {
+  id               String       @id @default(cuid())
+  photoUrl         String?
+  firstName        String
+  lastNamePaternal String
+  lastNameMaternal String?
+  birthDate        DateTime?
+  sex              Sex?
+  documentId       String?
+  phone            String?
+  whatsapp         String?
+  email            String?
+  address          String?
+  city             String?
+  zone             String?
+  occupation       String?
+  company          String?
+  socialMedia      String?
+  registeredAt     DateTime     @default(now())
+  status           PersonStatus @default(ACTIVO)
+
+  currentCellId  String?
+  currentCell    Cell?         @relation("PersonCurrentCell", fields: [currentCellId], references: [id])
+  currentStageId String?
+  currentStage   ProcessStage? @relation(fields: [currentStageId], references: [id])
+
+  howArrived    HowArrived?
+  originDetail  String?
+  invitedById   String?
+  invitedBy     Person?     @relation("Invites", fields: [invitedById], references: [id])
+  invitedPeople Person[]    @relation("Invites")
+
+  user User?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  familyMemberships          FamilyRelationship[]       @relation("PersonInFamily")
+  relatedTo                  FamilyRelationship[]       @relation("RelatedPerson")
+  cellMemberships            CellMembership[]
+  attendances                Attendance[]
+  processHistory             PersonProcess[]
+  acceptedJesus              AcceptedJesus?
+  firstCellVisit             FirstCellVisit?
+  preEncounterClasses        PreEncounterClass[]
+  encounterRegs              EncounterRegistration[]
+  postEncounterClasses       PostEncounterClass[]
+  baptism                    Baptism?
+  churchAttendance           ChurchAttendance?
+  retreatParticipations      RetreatParticipant[]
+  congressParticipations     CongressParticipant[]
+  invitationsMade            Invitation[]               @relation("Inviter")
+  invitationsReceived        Invitation[]               @relation("Invited")
+  tasks                      Task[]
+  lifeHistory                LifeHistory?
+  personalChallenges         PersonalChallenge[]
+  personalGoals              PersonalGoal[]
+  dreams                     Dream[]
+  achievements               Achievement[]
+  testimonials               Testimonial[]
+  discipleshipAsDisciple     DiscipleshipSession[]      @relation("Disciple")
+  discipleshipAsMentor       DiscipleshipSession[]      @relation("Mentor")
+  developmentPlans           DevelopmentPlan[]
+  eventParticipations        EventParticipant[]
+  fastingRecords             FastingRecord[]
+  leadershipDevelopment      LeadershipDevelopment?
+  multiplicationsAsLeader    LeadershipMultiplication[] @relation("MultLeader")
+  multiplicationsAsDisciple  LeadershipMultiplication[] @relation("MultDisciple")
+  multiplicationsAsNewLeader LeadershipMultiplication[] @relation("MultNewLeader")
+  timeline                   PersonTimeline[]
+  prayerRequests             PrayerRequest[]
+  cellHistory                CellHistory[]
+
+  @@index([lastNamePaternal, firstName])
+  @@map("people")
+}
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  relationships FamilyRelationship[]
+
+  @@map("families")
+}
+
+enum RelationType {
+  CONYUGE
+  HIJO
+  PADRE
+  MADRE
+  HERMANO
+  OTRO
+}
+
+model FamilyRelationship {
+  id              String       @id @default(cuid())
+  familyId        String
+  family          Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  personId        String
+  person          Person       @relation("PersonInFamily", fields: [personId], references: [id], onDelete: Cascade)
+  relatedPersonId String
+  relatedPerson   Person       @relation("RelatedPerson", fields: [relatedPersonId], references: [id], onDelete: Cascade)
+  relationType    RelationType
+  notes           String?
+
+  @@map("family_relationships")
+}
+
+model CellMembership {
+  id        String    @id @default(cuid())
+  personId  String
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  cellId    String
+  cell      Cell      @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  role      String    @default("MIEMBRO") // MIEMBRO, LIDER, CO_LIDER
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+  isCurrent Boolean   @default(true)
+
+  @@map("cell_memberships")
+}
+
+model CellHistory {
+  id             String    @id @default(cuid())
+  personId       String
+  person         Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  previousCellId String?
+  newCellId      String?
+  joinedAt       DateTime
+  leftAt         DateTime?
+  reason         String?
+  createdAt      DateTime  @default(now())
+
+  @@map("cell_change_history")
+}
+
+// ============================================================================
+// 4. ASISTENCIA
+// ============================================================================
+
+model Attendance {
+  id            String   @id @default(cuid())
+  cellId        String
+  cell          Cell     @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  personId      String
+  person        Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  date          DateTime
+  attended      Boolean  @default(false)
+  isGuest       Boolean  @default(false)
+  absenceReason String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@unique([cellId, personId, date])
+  @@map("attendance")
+}
+
+model AttendanceReport {
+  id                String   @id @default(cuid())
+  cellId            String
+  cell              Cell     @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  date              DateTime
+  leaderName        String?
+  place             String?
+  membersCount      Int      @default(0)
+  attendeesCount    Int      @default(0)
+  newCount          Int      @default(0)
+  guestsCount       Int      @default(0)
+  visitorsCount     Int      @default(0)
+  absentCount       Int      @default(0)
+  activity          String?
+  notes             String?
+  photoUrl          String?
+  evidenceUrl       String?
+  attendancePercent Float    @default(0)
+  createdAt         DateTime @default(now())
+
+  @@unique([cellId, date])
+  @@map("attendance_reports")
+}
+
+// ============================================================================
+// 5. PROCESO / EMBUDO / TIMELINE
+// ============================================================================
+
+model ProcessStage {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  order       Int
+  description String?
+  isActive    Boolean @default(true)
+
+  people          Person[]
+  personProcesses PersonProcess[]
+
+  @@map("process_stages")
+}
+
+model PersonProcess {
+  id         String       @id @default(cuid())
+  personId   String
+  person     Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  stageId    String
+  stage      ProcessStage @relation(fields: [stageId], references: [id])
+  achievedAt DateTime     @default(now())
+  notes      String?
+
+  @@map("person_process")
+}
+
+model PersonTimeline {
+  id          String   @id @default(cuid())
+  personId    String
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  date        DateTime @default(now())
+  type        String // e.g. ACEPTO_JESUS, PRIMERA_CELULA, ASISTENCIA, PRE_ENCUENTRO, ENCUENTRO, ORACION, META, LOGRO, TESTIMONIO...
+  title       String
+  description String?
+  icon        String?
+  isPrivate   Boolean  @default(false)
+  relatedId   String?
+  createdAt   DateTime @default(now())
+
+  @@map("person_timeline")
+}
+
+// ============================================================================
+// 6. GANAR — Aceptó a Jesús / Primera vez en célula / Invitaciones
+// ============================================================================
+
+model AcceptedJesus {
+  id            String   @id @default(cuid())
+  personId      String   @unique
+  person        Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  date          DateTime
+  place         String?
+  accompaniedBy String?
+  notes         String?
+  testimony     String?
+  createdAt     DateTime @default(now())
+
+  @@map("accepted_jesus")
+}
+
+model FirstCellVisit {
+  id         String   @id @default(cuid())
+  personId   String   @unique
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  date       DateTime
+  cellName   String?
+  leaderName String?
+  broughtBy  String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@map("first_cell_visits")
+}
+
+model Invitation {
+  id          String      @id @default(cuid())
+  inviterId   String
+  inviter     Person      @relation("Inviter", fields: [inviterId], references: [id])
+  invitedId   String
+  invited     Person      @relation("Invited", fields: [invitedId], references: [id])
+  date        DateTime    @default(now())
+  howArrived  HowArrived?
+  eventSource String?
+  cellId      String?
+  cell        Cell?       @relation(fields: [cellId], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@map("invitations")
+}
+
+// ============================================================================
+// 7. CONSOLIDAR — Pre-Encuentro / Encuentro / Post-Encuentro / Bautismo / Iglesia
+// ============================================================================
+
+model PreEncounterClass {
+  id          String    @id @default(cuid())
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  classNumber Int // 1-4
+  date        DateTime?
+  completed   Boolean   @default(false)
+  notes       String?
+
+  @@unique([personId, classNumber])
+  @@map("pre_encounter_classes")
+}
+
+enum EncounterType {
+  ENCUENTRO
+  RE_ENCUENTRO
+  ENCUENTRO_RESCATE
+  RETIRO_LIDERAZGO
+  RETIRO_FAMILIAR
+  RETIRO_JUVENIL
+  OTRO
+}
+
+model Encounter {
+  id              String        @id @default(cuid())
+  type            EncounterType @default(ENCUENTRO)
+  name            String
+  date            DateTime
+  place           String?
+  capacity        Int?
+  responsibleName String?
+  requirements    String?
+  createdAt       DateTime      @default(now())
+
+  registrations EncounterRegistration[]
+
+  @@map("encounters")
+}
+
+model EncounterRegistration {
+  id           String    @id @default(cuid())
+  encounterId  String
+  encounter    Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  personId     String
+  person       Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  cellId       String?
+  cell         Cell?     @relation(fields: [cellId], references: [id])
+  registeredAt DateTime  @default(now())
+  confirmed    Boolean   @default(false)
+  attended     Boolean   @default(false)
+
+  @@unique([encounterId, personId])
+  @@map("encounter_registrations")
+}
+
+model PostEncounterClass {
+  id          String    @id @default(cuid())
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  classNumber Int // 1-4
+  date        DateTime?
+  completed   Boolean   @default(false)
+  notes       String?
+
+  @@unique([personId, classNumber])
+  @@map("post_encounter_classes")
+}
+
+model Baptism {
+  id              String   @id @default(cuid())
+  personId        String   @unique
+  person          Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  date            DateTime
+  place           String?
+  responsibleName String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@map("baptisms")
+}
+
+model ChurchAttendance {
+  id             String    @id @default(cuid())
+  personId       String    @unique
+  person         Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  attends        Boolean   @default(true)
+  churchName     String?
+  congregation   String?
+  frequency      String?
+  lastAttendance DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@map("church_attendance")
+}
+
+// ============================================================================
+// 8. RETIROS / CONGRESOS / EVENTOS
+// ============================================================================
+
+model RetreatType {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  retreats Retreat[]
+
+  @@map("retreat_types")
+}
+
+model Retreat {
+  id            String      @id @default(cuid())
+  retreatTypeId String
+  retreatType   RetreatType @relation(fields: [retreatTypeId], references: [id])
+  name          String
+  date          DateTime
+  place         String?
+  createdAt     DateTime    @default(now())
+
+  participants RetreatParticipant[]
+
+  @@map("retreats")
+}
+
+model RetreatParticipant {
+  id        String  @id @default(cuid())
+  retreatId String
+  retreat   Retreat @relation(fields: [retreatId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  notes     String?
+
+  @@unique([retreatId, personId])
+  @@map("retreat_participants")
+}
+
+model Congress {
+  id        String   @id @default(cuid())
+  name      String
+  date      DateTime
+  place     String?
+  createdAt DateTime @default(now())
+
+  participants CongressParticipant[]
+
+  @@map("congresses")
+}
+
+model CongressParticipant {
+  id                String   @id @default(cuid())
+  congressId        String
+  congress          Congress @relation(fields: [congressId], references: [id], onDelete: Cascade)
+  personId          String
+  person            Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  inscription       Boolean  @default(false)
+  confirmation      Boolean  @default(false)
+  attendance        Boolean  @default(false)
+  participationType String?
+  notes             String?
+
+  @@unique([congressId, personId])
+  @@map("congress_participants")
+}
+
+model Event {
+  id              String   @id @default(cuid())
+  type            String // Cosecha, Ayuno, Evangelismo, Liberacion, Sanidad Interior, etc.
+  name            String
+  date            DateTime
+  objective       String?
+  responsibleName String?
+  cellId          String?
+  cell            Cell?    @relation(fields: [cellId], references: [id])
+  results         String?
+  createdAt       DateTime @default(now())
+
+  participants EventParticipant[]
+
+  @@map("events")
+}
+
+enum EventParticipantRole {
+  PARTICIPANTE
+  INVITADO
+  NUEVO
+}
+
+model EventParticipant {
+  id             String               @id @default(cuid())
+  eventId        String
+  event          Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  personId       String
+  person         Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  role           EventParticipantRole @default(PARTICIPANTE)
+  returned       Boolean              @default(false)
+  joinedCell     Boolean              @default(false)
+  startedProcess Boolean              @default(false)
+
+  @@unique([eventId, personId])
+  @@map("event_participants")
+}
+
+model FastingRecord {
+  id            String    @id @default(cuid())
+  personId      String
+  person        Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  startDate     DateTime
+  endDate       DateTime?
+  type          String?
+  participation String?
+  notes         String?
+
+  @@map("fasting_records")
+}
+
+model SpiritualActivity {
+  id          String   @id @default(cuid())
+  name        String
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("spiritual_activities")
+}
+
+// ============================================================================
+// 9. DISCIPULADO Y HERRAMIENTAS
+// ============================================================================
+
+model DiscipleshipSession {
+  id           String    @id @default(cuid())
+  date         DateTime  @default(now())
+  discipleId   String
+  disciple     Person    @relation("Disciple", fields: [discipleId], references: [id], onDelete: Cascade)
+  mentorId     String
+  mentor       Person    @relation("Mentor", fields: [mentorId], references: [id])
+  topic        String
+  situation    String?
+  objective    String?
+  conversation String?
+  commitments  String?
+  nextStep     String?
+  followUpDate DateTime?
+  result       String?
+  privateNotes String?
+  createdAt    DateTime  @default(now())
+
+  tools DiscipleshipSessionTool[]
+
+  @@map("discipleship_sessions")
+}
+
+model DiscipleshipTool {
+  id          String   @id @default(cuid())
+  category    String // Vida Espiritual, Oracion, Discipulado, Crecimiento Personal, Familia, Liderazgo, Servicio
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  sessions DiscipleshipSessionTool[]
+
+  @@map("discipleship_tools")
+}
+
+model DiscipleshipSessionTool {
+  id        String              @id @default(cuid())
+  sessionId String
+  session   DiscipleshipSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  toolId    String
+  tool      DiscipleshipTool    @relation(fields: [toolId], references: [id])
+
+  @@unique([sessionId, toolId])
+  @@map("discipleship_session_tools")
+}
+
+model DevelopmentPlan {
+  id          String    @id @default(cuid())
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  title       String
+  category    String? // clase, curso, formacion, liderazgo
+  status      String    @default("EN_PROCESO") // PENDIENTE, EN_PROCESO, COMPLETADO
+  startDate   DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@map("development_plans")
+}
+
+// ============================================================================
+// 10. VIDA — Historia, desafíos, metas, sueños, logros, testimonios
+// ============================================================================
+
+model LifeHistory {
+  id               String   @id @default(cuid())
+  personId         String   @unique
+  person           Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  history          String?
+  background       String?
+  currentSituation String?
+  strengths        String?
+  developmentAreas String?
+  gifts            String?
+  talents          String?
+  skills           String?
+  purpose          String?
+  updatedAt        DateTime @updatedAt
+
+  @@map("life_histories")
+}
+
+enum ChallengeStatus {
+  ABIERTO
+  EN_SEGUIMIENTO
+  MEJORANDO
+  RESUELTO
+  CERRADO
+}
+
+model PersonalChallenge {
+  id              String          @id @default(cuid())
+  personId        String
+  person          Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
+  problem         String
+  category        String
+  description     String?
+  date            DateTime        @default(now())
+  priority        String          @default("MEDIA")
+  responsibleName String?
+  status          ChallengeStatus @default(ABIERTO)
+  actions         String?
+  followUp        String?
+  result          String?
+  createdAt       DateTime        @default(now())
+
+  @@map("personal_challenges")
+}
+
+model PersonalGoal {
+  id              String    @id @default(cuid())
+  personId        String
+  person          Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  goal            String
+  category        String
+  description     String?
+  date            DateTime  @default(now())
+  targetDate      DateTime?
+  priority        String    @default("MEDIA")
+  responsibleName String?
+  status          String    @default("EN_PROCESO")
+  progress        Int       @default(0)
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@map("personal_goals")
+}
+
+enum DreamHorizon {
+  CORTO_PLAZO
+  MEDIANO_PLAZO
+  LARGO_PLAZO
+}
+
+model Dream {
+  id          String       @id @default(cuid())
+  personId    String
+  person      Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  dream       String
+  description String?
+  date        DateTime     @default(now())
+  horizon     DreamHorizon
+  status      String       @default("ACTIVO")
+  nextStep    String?
+  createdAt   DateTime     @default(now())
+
+  @@map("dreams")
+}
+
+model Achievement {
+  id               String   @id @default(cuid())
+  personId         String
+  person           Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  achievement      String
+  date             DateTime @default(now())
+  category         String?
+  description      String?
+  evidenceUrl      String?
+  registeredByName String?
+  comment          String?
+  createdAt        DateTime @default(now())
+
+  @@map("achievements")
+}
+
+model Testimonial {
+  id                String   @id @default(cuid())
+  personId          String
+  person            Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  before            String?
+  process           String?
+  after             String?
+  whatGodDid        String?
+  date              DateTime @default(now())
+  isPublic          Boolean  @default(false)
+  authorizedToShare Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@map("testimonials")
+}
+
+// ============================================================================
+// 11. LIDERAZGO Y MULTIPLICACIÓN
+// ============================================================================
+
+model LeadershipDevelopment {
+  id          String    @id @default(cuid())
+  personId    String    @unique
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  startDate   DateTime?
+  strengths   String?
+  growthAreas String?
+  notes       String?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("leadership_development")
+}
+
+enum MultiplicationStage {
+  DISCIPULO
+  LIDER_EN_FORMACION
+  CO_LIDER
+  LIDER
+  NUEVA_CELULA
+}
+
+model LeadershipMultiplication {
+  id          String              @id @default(cuid())
+  leaderId    String
+  leader      Person              @relation("MultLeader", fields: [leaderId], references: [id])
+  discipleId  String
+  disciple    Person              @relation("MultDisciple", fields: [discipleId], references: [id])
+  newLeaderId String?
+  newLeader   Person?             @relation("MultNewLeader", fields: [newLeaderId], references: [id])
+  newCellId   String?
+  stage       MultiplicationStage @default(DISCIPULO)
+  date        DateTime            @default(now())
+  notes       String?
+  createdAt   DateTime            @default(now())
+
+  @@map("leadership_multiplication")
+}
+
+// ============================================================================
+// 12. MOTIVOS DE ORACIÓN — El corazón de acompañamiento
+// ============================================================================
+
+enum PrayerStatus {
+  ACTIVO
+  RESUELTO
+  DESACTIVADO
+}
+
+enum PrayerPriority {
+  URGENTE
+  IMPORTANTE
+  NORMAL
+}
+
+model PrayerRequest {
+  id              String         @id @default(cuid())
+  personId        String
+  person          Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  motivo          String
+  category        String
+  priority        PrayerPriority @default(NORMAL)
+  responsibleName String?
+  notes           String?
+  status          PrayerStatus   @default(ACTIVO)
+  isPrivate       Boolean        @default(false)
+  startDate       DateTime       @default(now())
+  resolvedDate    DateTime?
+  deactivatedDate DateTime?
+  createdAt       DateTime       @default(now())
+  createdById     String?
+
+  updates    PrayerRequestUpdate[]
+  resolution PrayerRequestResolution?
+
+  @@map("prayer_requests")
+}
+
+model PrayerRequestUpdate {
+  id              String        @id @default(cuid())
+  prayerRequestId String
+  prayerRequest   PrayerRequest @relation(fields: [prayerRequestId], references: [id], onDelete: Cascade)
+  date            DateTime      @default(now())
+  note            String
+  authorName      String?
+  createdAt       DateTime      @default(now())
+
+  @@map("prayer_request_updates")
+}
+
+model PrayerRequestResolution {
+  id                String        @id @default(cuid())
+  prayerRequestId   String        @unique
+  prayerRequest     PrayerRequest @relation(fields: [prayerRequestId], references: [id], onDelete: Cascade)
+  response          String
+  date              DateTime      @default(now())
+  testimony         String?
+  notes             String?
+  registeredByName  String?
+  becameTestimonial Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+
+  @@map("prayer_request_resolutions")
+}
+
+// ============================================================================
+// 13. SEGUIMIENTO / TAREAS / NOTIFICACIONES
+// ============================================================================
+
+enum TaskType {
+  LLAMAR
+  WHATSAPP
+  VISITAR
+  INVITAR
+  SEGUIMIENTO
+  DISCIPULADO
+  INVITAR_ENCUENTRO
+  CONTACTAR_FAMILIAR
+}
+
+enum TaskStatus {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADA
+  CANCELADA
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  personId     String
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  assignedToId String?
+  assignedTo   User?      @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  createdById  String?
+  createdBy    User?      @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  type         TaskType
+  status       TaskStatus @default(PENDIENTE)
+  dueDate      DateTime?
+  notes        String?
+  createdAt    DateTime   @default(now())
+  completedAt  DateTime?
+
+  @@map("tasks")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  type      String   @default("INFO")
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+// ============================================================================
+// 14. AUDITORÍA Y CONFIGURACIÓN
+// ============================================================================
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  userId   String?
+  user     User?    @relation(fields: [userId], references: [id])
+  date     DateTime @default(now())
+  action   String
+  entity   String
+  recordId String?
+  oldValue Json?
+  newValue Json?
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
