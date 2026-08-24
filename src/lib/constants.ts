@@ -208,7 +208,6 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/", icon: "LayoutDashboard" },
   { label: "Personas", href: "/personas", icon: "Users", pillar: "GANAR" },
-  { label: "Cardex", href: "/personas", icon: "IdCard" },
   { label: "Familias", href: "/familias", icon: "Home" },
   { label: "Células", href: "/celulas", icon: "CircleDot" },
   { label: "Líderes", href: "/lideres", icon: "Crown" },
