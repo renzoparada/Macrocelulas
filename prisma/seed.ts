@@ -31,6 +31,12 @@ function randomInt(min: number, max: number): number {
 }
 
 async function main() {
+  const existingRoles = await prisma.role.count();
+  if (existingRoles > 0) {
+    console.log("ℹ️  La base de datos ya tiene datos — se omite el seed.");
+    return;
+  }
+
   console.log("🌱 Sembrando Macro Santidad CRM...");
 
   // -------------------------------------------------------------------------
