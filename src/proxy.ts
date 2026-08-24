@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthRoute = pathname.startsWith("/login");
-  const isPublic = isAuthRoute || pathname.startsWith("/api/auth");
+  const isPublic = isAuthRoute || pathname.startsWith("/api/auth") || pathname.startsWith("/registro");
 
   if (!req.auth && !isPublic) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
